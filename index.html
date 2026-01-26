@@ -194,8 +194,9 @@ async function postMessage() {
    投稿一覧取得
 ===================== */
 async function loadPosts() {
-  const res = await fetch(
-    `${url}/rest/v1/posts?select=message,created_at,fk_user(name,role)&order=created_at.desc`,
+  // 投稿取得
+  const postsRes = await fetch(
+    `${url}/rest/v1/posts?select=id,message,created_at,user_id&order=created_at.desc`,
     {
       headers: {
         apikey: KEY,
@@ -204,25 +205,52 @@ async function loadPosts() {
     }
   );
 
-  if (!res.ok) {
-    alert("読み込み失敗: " + await res.text());
+  if (!postsRes.ok) {
+    alert("投稿取得失敗: " + await postsRes.text());
     return;
   }
 
-  const posts = await res.json();
+  const posts = await postsRes.json();
+
+  // ユーザー取得
+  const usersRes = await fetch(
+    `${url}/rest/v1/users?select=id,name,role`,
+    {
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${KEY}`
+      }
+    }
+  );
+
+  if (!usersRes.ok) {
+    alert("ユーザー取得失敗: " + await usersRes.text());
+    return;
+  }
+
+  const users = await usersRes.json();
+
+  // user_id → user 情報 のMap作成
+  const userMap = {};
+  users.forEach(u => {
+    userMap[u.id] = u;
+  });
+
   const list = document.getElementById("posts");
   list.innerHTML = "";
 
   posts.forEach(post => {
+    const user = userMap[post.user_id];
+    const name = user?.name ?? "不明";
+    const role = user?.role ?? "未設定";
     const time = new Date(post.created_at).toLocaleString("ja-JP");
-    const name = post.users?.name || "不明";
-    const role = post.users?.role || "未設定";
 
-    const item = document.createElement("li");
-    item.textContent = `【${time}】${name}（${role}）: ${post.message}`;
-    list.appendChild(item);
+    const li = document.createElement("li");
+    li.textContent = `【${time}】${name}（${role}）: ${post.message}`;
+    list.appendChild(li);
   });
 }
+
 
 document.addEventListener("DOMContentLoaded", loadPosts);
 </script>
