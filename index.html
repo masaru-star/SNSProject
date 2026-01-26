@@ -212,9 +212,9 @@ async function loadPosts() {
 
   const posts = await postsRes.json();
 
-  // ユーザー取得
+  // ユーザー取得（★ is_banned も取る）
   const usersRes = await fetch(
-    `${url}/rest/v1/users?select=id,name,role`,
+    `${url}/rest/v1/users?select=id,name,role,is_banned`,
     {
       headers: {
         apikey: KEY,
@@ -230,7 +230,7 @@ async function loadPosts() {
 
   const users = await usersRes.json();
 
-  // user_id → user 情報 のMap作成
+  // user_id → user
   const userMap = {};
   users.forEach(u => {
     userMap[u.id] = u;
@@ -241,8 +241,12 @@ async function loadPosts() {
 
   posts.forEach(post => {
     const user = userMap[post.user_id];
-    const name = user?.name ?? "不明";
-    const role = user?.role ?? "未設定";
+
+    // ★ ここが肝：BANユーザーは表示しない
+    if (!user || user.is_banned) return;
+
+    const name = user.name ?? "不明";
+    const role = user.role ?? "未設定";
     const time = new Date(post.created_at).toLocaleString("ja-JP");
 
     const li = document.createElement("li");
