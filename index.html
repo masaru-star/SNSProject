@@ -204,18 +204,23 @@ async function loadPosts() {
     }
   );
 
+  if (!res.ok) {
+    alert("読み込み失敗: " + await res.text());
+    return;
+  }
+
   const posts = await res.json();
   const list = document.getElementById("posts");
   list.innerHTML = "";
 
   posts.forEach(post => {
     const time = new Date(post.created_at).toLocaleString("ja-JP");
-    const name = post.fk_user?.name ?? "不明";
-    const role = post.fk_user?.role ?? "未設定";
+    const name = post.users?.name || "不明";
+    const role = post.users?.role || "未設定";
 
-    const li = document.createElement("li");
-    li.textContent = `【${time}】${name}（${role}）: ${post.message}`;
-    list.appendChild(li);
+    const item = document.createElement("li");
+    item.textContent = `【${time}】${name}（${role}）: ${post.message}`;
+    list.appendChild(item);
   });
 }
 
