@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Snsproject</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <h1>とても重要なお知らせ</h1>
+  <p>Snsprojectは、簡易的なIPでブロックする機能を追加しました。<br>なので、荒らしはやめてください。</p>
+
+  <h1>投稿フォーム</h1>
+  <p><a href="about.html">◀ 利用規約</a></p>
+  <button onclick="loadPosts()">投稿を読み込む</button>
+  <input type="text" id="name" placeholder="名前を入力" /><br />
+  <input type="password" id="password" placeholder="パスワードを入力" /><br />
+  <textarea id="message" placeholder="メッセージを入力" rows="5" cols="30"></textarea><br />
+  <button onclick="postMessage()">投稿</button>
+
+  <p id="status"></p>
+
+  <hr />
+
+  <h2>ユーザー登録</h2>
+  <input type="text" id="reg_name" placeholder="ユーザー名" /><br />
+  <input type="password" id="reg_password" placeholder="パスワード" /><br />
+  <button onclick="registerUser()">登録</button>
+  <p id="reg_status"></p>
+
+  <hr />
+
+  <h2>投稿一覧</h2>
+  <ul id="posts"></ul>
+
+<script>
+const url = "https://ndixltmkcwfvoesibtyr.supabase.co";
+const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kaXhsdG1rY3dmdm9lc2lidHlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4OTAyNjgsImV4cCI6MjA4MDQ2NjI2OH0.fX-C_fk8rrcuFZ7AF0JTWuNzsfAMEIDLt4fluvtaSB4";
+/* =====================
+   端末指紋（device_id）
+===================== */
+let deviceId = localStorage.getItem("device_id");
+if (!deviceId) {
+  deviceId = crypto.randomUUID();
+  localStorage.setItem("device_id", deviceId);
+}
+
+/* =====================
+   パスワードハッシュ
+===================== */
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/* =====================
+   ユーザー登録
+===================== */
+async function registerUser() {
+  const name = document.getElementById("reg_name").value.trim();
+  const password = document.getElementById("reg_password").value;
+  const reg_status = document.getElementById("reg_status");
+
+  if (!name || !password) {
+    reg_status.textContent = "ユーザー名とパスワードを入力してね。";
+    return;
+  }
+
+  const hashedPassword = await hashPassword(password);
+  const encodedName = encodeURIComponent(name);
+
+  // ★ 修正ポイント：URLエンコード
+  const checkRes = await fetch(
+    `${url}/rest/v1/users?name=eq.${encodedName}`,
+    {
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${KEY}`
+      }
+    }
+  );
+
+  const existingUsers = await checkRes.json();
+
+  if (existingUsers.length > 0) {
+    reg_status.textContent = "このユーザー名はすでに使われています。";
+    return;
+  }
+  const res = await fetch(`${url}/rest/v1/users`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: KEY,
+      Authorization: `Bearer ${KEY}`,
+      Prefer: "return=representation"
+    },
+    body: JSON.stringify({
+      name,
+      password: hashedPassword,
+      device_id: deviceId
+    })
+  });
+
+
+  if (!res.ok) {
+    reg_status.textContent = "登録に失敗しました。";
+    return;
+  }
+
+  reg_status.textContent = "登録完了！";
+  document.getElementById("reg_name").value = "";
+  document.getElementById("reg_password").value = "";
+
+  // 運営アカウントのウェルカム投稿
+  await fetch(`${url}/rest/v1/posts`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: KEY,
+      Authorization: `Bearer ${KEY}`
+    },
+    body: JSON.stringify({
+      message: `ようこそ、${name}さん！`,
+      user_id: "07003402-51ea-4a7c-8279-0ef4258250af"
+    })
+  });
+
+  loadPosts();
+}
+
+/* =====================
+   投稿処理
+===================== */
+async function postMessage() {
+  const name = document.getElementById("name").value.trim();
+  const password = document.getElementById("password").value;
+  const message = document.getElementById("message").value;
+  const status = document.getElementById("status");
+
+  if (!name || !password || !message) {
+    status.textContent = "全部入力してね。";
+    return;
+  }
+
+  const hashedPassword = await hashPassword(password);
+  const encodedName = encodeURIComponent(name);
+
+  const authRes = await fetch(
+    `${url}/rest/v1/users?name=eq.${encodedName}&password=eq.${hashedPassword}`,
+    {
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${KEY}`
+      }
+    }
+  );
+
+  const user = await authRes.json();
+
+  if (user.length === 0) {
+    status.textContent = "認証に失敗しました。";
+    return;
+  }
+
+  if (user[0].is_banned) {
+    status.textContent = "このユーザーは凍結されています。";
+    return;
+  }
+// 端末BANチェック
+const banRes = await fetch(
+  `${url}/rest/v1/banned_devices?device_id=eq.${deviceId}`,
+  {
+    headers: {
+      apikey: KEY,
+      Authorization: `Bearer ${KEY}`
+    }
+  }
+);
+
+const banned = await banRes.json();
+if (banned.length > 0) {
+  status.textContent = "この端末は制限されています。";
+  return;
+}
+  const res = await fetch(`${url}/rest/v1/posts`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: KEY,
+      Authorization: `Bearer ${KEY}`,
+      Prefer: "return=representation"
+    },
+    body: JSON.stringify({
+      message,
+      user_id: user[0].id,
+      device_id: deviceId
+    })
+  });
+
+
+  if (res.ok) {
+    status.textContent = "投稿した！";
+    document.getElementById("message").value = "";
+    loadPosts();
+  } else {
+    status.textContent = "投稿失敗…";
+  }
+}
+
+/* =====================
+   投稿一覧取得
+===================== */
+async function loadPosts() {
+  /* =====================
+     投稿取得
+  ===================== */
+  const postsRes = await fetch(
+    `${url}/rest/v1/posts?select=id,message,created_at,user_id,device_id&order=created_at.desc`,
+    {
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${KEY}`
+      }
+    }
+  );
+
+  if (!postsRes.ok) {
+    alert("投稿取得失敗: " + await postsRes.text());
+    return;
+  }
+
+  const posts = await postsRes.json();
+
+  /* =====================
+     ユーザー取得
+  ===================== */
+  const usersRes = await fetch(
+    `${url}/rest/v1/users?select=id,name,role,is_banned,device_id`,
+    {
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${KEY}`
+      }
+    }
+  );
+
+  if (!usersRes.ok) {
+    alert("ユーザー取得失敗: " + await usersRes.text());
+    return;
+  }
+
+  const users = await usersRes.json();
+
+  /* =====================
+     BAN端末取得
+  ===================== */
+  const bannedRes = await fetch(
+    `${url}/rest/v1/banned_devices?select=device_id`,
+    {
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${KEY}`
+      }
+    }
+  );
+
+  if (!bannedRes.ok) {
+    alert("BAN端末取得失敗: " + await bannedRes.text());
+    return;
+  }
+
+  const bannedDevices = await bannedRes.json();
+  const bannedSet = new Set(bannedDevices.map(b => b.device_id));
+
+  /* =====================
+     user_id → user map
+  ===================== */
+  const userMap = {};
+  users.forEach(u => {
+    userMap[u.id] = u;
+  });
+
+  /* =====================
+     表示処理
+  ===================== */
+  const list = document.getElementById("posts");
+  list.innerHTML = "";
+
+  posts.forEach(post => {
+    const user = userMap[post.user_id];
+
+    // ❌ ユーザー不明
+    if (!user) return;
+
+    // ❌ ユーザーBAN
+    if (user.is_banned) return;
+
+    // ❌ BAN端末（投稿者）
+    if (bannedSet.has(user.device_id)) return;
+
+    // ❌ BAN端末（投稿単位）
+    if (post.device_id && bannedSet.has(post.device_id)) return;
+
+    const time = new Date(post.created_at).toLocaleString("ja-JP");
+    const name = user.name ?? "不明";
+    const role = user.role ?? "未設定";
+
+    const li = document.createElement("li");
+    li.textContent = `【${time}】${name}（${role}）: ${post.message}`;
+    list.appendChild(li);
+  });
+}
+
+
+document.addEventListener("DOMContentLoaded", loadPosts);
+</script>
+</body>
+</html>
