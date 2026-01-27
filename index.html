@@ -109,7 +109,6 @@ async function registerUser() {
   password: hashedPassword,
   device_id: deviceId
 })
-})
   ;
 
   if (!res.ok) {
@@ -205,7 +204,7 @@ if (banned.length > 0) {
   message,
   user_id: user[0].id,
   device_id: deviceId
-})
+
  })
   ;
 
