@@ -95,7 +95,6 @@ async function registerUser() {
     reg_status.textContent = "このユーザー名はすでに使われています。";
     return;
   }
-
   const res = await fetch(`${url}/rest/v1/users`, {
     method: "POST",
     headers: {
@@ -105,11 +104,12 @@ async function registerUser() {
       Prefer: "return=representation"
     },
     body: JSON.stringify({
-  name,
-  password: hashedPassword,
-  device_id: deviceId
-})
-  ;
+      name,
+      password: hashedPassword,
+      device_id: deviceId
+    })
+  });
+
 
   if (!res.ok) {
     reg_status.textContent = "登録に失敗しました。";
@@ -191,7 +191,6 @@ if (banned.length > 0) {
   status.textContent = "この端末は制限されています。";
   return;
 }
-
   const res = await fetch(`${url}/rest/v1/posts`, {
     method: "POST",
     headers: {
@@ -200,13 +199,13 @@ if (banned.length > 0) {
       Authorization: `Bearer ${KEY}`,
       Prefer: "return=representation"
     },
-   body: JSON.stringify({
-  message,
-  user_id: user[0].id,
-  device_id: deviceId
+    body: JSON.stringify({
+      message,
+      user_id: user[0].id,
+      device_id: deviceId
+    })
+  });
 
- })
-  ;
 
   if (res.ok) {
     status.textContent = "投稿した！";
