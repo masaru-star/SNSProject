@@ -110,7 +110,7 @@ async function registerUser() {
   device_id: deviceId
 })
 })
-  });
+  ;
 
   if (!res.ok) {
     reg_status.textContent = "登録に失敗しました。";
@@ -207,7 +207,7 @@ if (banned.length > 0) {
   device_id: deviceId
 })
  })
-  });
+  ;
 
   if (res.ok) {
     status.textContent = "投稿した！";
