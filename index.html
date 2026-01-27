@@ -41,6 +41,14 @@
 <script>
 const url = "https://ndixltmkcwfvoesibtyr.supabase.co";
 const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kaXhsdG1rY3dmdm9lc2lidHlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4OTAyNjgsImV4cCI6MjA4MDQ2NjI2OH0.fX-C_fk8rrcuFZ7AF0JTWuNzsfAMEIDLt4fluvtaSB4";
+/* =====================
+   端末指紋（device_id）
+===================== */
+let deviceId = localStorage.getItem("device_id");
+if (!deviceId) {
+  deviceId = crypto.randomUUID();
+  localStorage.setItem("device_id", deviceId);
+}
 
 /* =====================
    パスワードハッシュ
@@ -97,9 +105,11 @@ async function registerUser() {
       Prefer: "return=representation"
     },
     body: JSON.stringify({
-      name,
-      password: hashedPassword
-    })
+  name,
+  password: hashedPassword,
+  device_id: deviceId
+})
+})
   });
 
   if (!res.ok) {
@@ -166,6 +176,22 @@ async function postMessage() {
     status.textContent = "このユーザーは凍結されています。";
     return;
   }
+// 端末BANチェック
+const banRes = await fetch(
+  `${url}/rest/v1/banned_devices?device_id=eq.${deviceId}`,
+  {
+    headers: {
+      apikey: KEY,
+      Authorization: `Bearer ${KEY}`
+    }
+  }
+);
+
+const banned = await banRes.json();
+if (banned.length > 0) {
+  status.textContent = "この端末は制限されています。";
+  return;
+}
 
   const res = await fetch(`${url}/rest/v1/posts`, {
     method: "POST",
@@ -175,10 +201,12 @@ async function postMessage() {
       Authorization: `Bearer ${KEY}`,
       Prefer: "return=representation"
     },
-    body: JSON.stringify({
-      message,
-      user_id: user[0].id
-    })
+   body: JSON.stringify({
+  message,
+  user_id: user[0].id,
+  device_id: deviceId
+})
+ })
   });
 
   if (res.ok) {
@@ -194,9 +222,11 @@ async function postMessage() {
    投稿一覧取得
 ===================== */
 async function loadPosts() {
-  // 投稿取得
+  /* =====================
+     投稿取得
+  ===================== */
   const postsRes = await fetch(
-    `${url}/rest/v1/posts?select=id,message,created_at,user_id&order=created_at.desc`,
+    `${url}/rest/v1/posts?select=id,message,created_at,user_id,device_id&order=created_at.desc`,
     {
       headers: {
         apikey: KEY,
@@ -212,9 +242,11 @@ async function loadPosts() {
 
   const posts = await postsRes.json();
 
-  // ユーザー取得（★ is_banned も取る）
+  /* =====================
+     ユーザー取得
+  ===================== */
   const usersRes = await fetch(
-    `${url}/rest/v1/users?select=id,name,role,is_banned`,
+    `${url}/rest/v1/users?select=id,name,role,is_banned,device_id`,
     {
       headers: {
         apikey: KEY,
@@ -230,24 +262,59 @@ async function loadPosts() {
 
   const users = await usersRes.json();
 
-  // user_id → user
+  /* =====================
+     BAN端末取得
+  ===================== */
+  const bannedRes = await fetch(
+    `${url}/rest/v1/banned_devices?select=device_id`,
+    {
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${KEY}`
+      }
+    }
+  );
+
+  if (!bannedRes.ok) {
+    alert("BAN端末取得失敗: " + await bannedRes.text());
+    return;
+  }
+
+  const bannedDevices = await bannedRes.json();
+  const bannedSet = new Set(bannedDevices.map(b => b.device_id));
+
+  /* =====================
+     user_id → user map
+  ===================== */
   const userMap = {};
   users.forEach(u => {
     userMap[u.id] = u;
   });
 
+  /* =====================
+     表示処理
+  ===================== */
   const list = document.getElementById("posts");
   list.innerHTML = "";
 
   posts.forEach(post => {
     const user = userMap[post.user_id];
 
-    // ★ ここが肝：BANユーザーは表示しない
-    if (!user || user.is_banned) return;
+    // ❌ ユーザー不明
+    if (!user) return;
 
+    // ❌ ユーザーBAN
+    if (user.is_banned) return;
+
+    // ❌ BAN端末（投稿者）
+    if (bannedSet.has(user.device_id)) return;
+
+    // ❌ BAN端末（投稿単位）
+    if (post.device_id && bannedSet.has(post.device_id)) return;
+
+    const time = new Date(post.created_at).toLocaleString("ja-JP");
     const name = user.name ?? "不明";
     const role = user.role ?? "未設定";
-    const time = new Date(post.created_at).toLocaleString("ja-JP");
 
     const li = document.createElement("li");
     li.textContent = `【${time}】${name}（${role}）: ${post.message}`;
