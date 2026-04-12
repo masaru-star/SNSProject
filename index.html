@@ -324,10 +324,25 @@ async function loadPosts() {
     const time = new Date(post.created_at).toLocaleString("ja-JP");
     const name = user.name ?? "不明";
     const role = user.role ?? "未設定";
-
     const li = document.createElement("li");
-    li.textContent = `【${time}】${name}（${role}）: ${post.message}`;
-    list.appendChild(li);
+    li.textContent = `【${time}】${name}（${role}）: `;
+    const span = document.createElement("span");
+    span.textContent = post.message; 
+    span.innerHTML = linkify(span.textContent);
+
+li.appendChild(span);
+list.appendChild(li);
+  });
+}
+/* =====================
+   URLを[link]に置換する関数
+===================== */
+function linkify(text) {
+  // URLを検出するための正規表現
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  // URLを <a href="URL">[link]</a> に置き換える
+  return text.replace(urlRegex, (url) => {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color: blue;">[link]</a>`;
   });
 }
 
