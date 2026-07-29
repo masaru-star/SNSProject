@@ -354,7 +354,7 @@ function escapeHtml(str) {
 function linkify(text) {
   let escapedText = escapeHtml(text);
   escapedText = escapedText.replace(
-    /&lt;(\/?(?:h1|h2|br)\s*\/?)&gt;/gi,
+    /&lt;(\/?(?:h1|h2|br|b|i|s)\s*\/?)&gt;/gi,
     '<$1>'
   );
   const urlRegex = /https?:\/\/[^\s<]+[^<.,:;"')\]\s]/g;
