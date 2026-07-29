@@ -342,7 +342,6 @@ list.appendChild(li);
 /* =====================
    URLを[link]に置換する関数
 ===================== */
-// HTMLエスケープ用のヘルパー関数
 function escapeHtml(str) {
   return str
     .replace(/&/g, '&amp;')
@@ -353,13 +352,16 @@ function escapeHtml(str) {
 }
 
 function linkify(text) {
-  const escapedText = escapeHtml(text);
+  let escapedText = escapeHtml(text);
+  escapedText = escapedText.replace(
+    /&lt;(\/?(?:h1|h2|br)\s*\/?)&gt;/gi,
+    '<$1>'
+  );
   const urlRegex = /https?:\/\/[^\s<]+[^<.,:;"')\]\s]/g;
   return escapedText.replace(urlRegex, (url) => {
     return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color: blue;">${url}</a>`;
   });
 }
-
 
 document.addEventListener("DOMContentLoaded", loadPosts);
 </script>
