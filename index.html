@@ -33,7 +33,7 @@
   <input type="text" id="name" placeholder="名前を入力" /><br />
   <input type="password" id="password" placeholder="パスワードを入力" /><br />
   <textarea id="message" placeholder="メッセージを入力" rows="5" cols="30"></textarea><br />
-  <button onclick="submitPost()">投稿</button>
+  <button onclick="postMessage()">投稿</button>
 
   <p id="status"></p>
 
@@ -152,7 +152,7 @@ async function registerUser() {
 /* =====================
    投稿処理
 ===================== */
-async function submitPost() {
+async function postMessage() {
   const name = document.getElementById("name").value.trim();
   const password = document.getElementById("password").value;
   const message = document.getElementById("message").value;
@@ -364,6 +364,7 @@ function linkify(text) {
   });
 }
 
+document.addEventListener("DOMContentLoaded", loadPosts);
 </script>
 </body>
 </html>
