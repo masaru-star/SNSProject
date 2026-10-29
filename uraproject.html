@@ -20,6 +20,8 @@
   <p>Snsprojectは、簡易的なIPでブロックする機能を追加しました。<br>なので、荒らしはやめてください。</p>
     <p>https://<input type="text" id="serverURL"/>.supabace.co に接続します。</p>
   <p>anonキー:<input type="text" id="anonkey"/></p>
+  <button onclick="testConnection()">接続テスト</button>
+<p id="connection_status"></p>
 
   <h1>投稿フォーム</h1>
   <p><a href="ura_kiyaku.html">◀ 利用規約</a></p>
@@ -45,8 +47,54 @@
   <ul id="posts"></ul>
 
 <script>
-const url = `https://+${serverURL}+.supabase.co`;
-  const KEY = `${anonkey}`;
+  
+function getServerConfig() {
+  const projectRef =
+    document.getElementById("serverURL").value.trim();
+
+  const key =
+    document.getElementById("anonkey").value.trim();
+
+  // SupabaseのProject Ref形式を検証
+  if (!/^[a-z0-9]{20}$/.test(projectRef)) {
+    throw new Error("Project IDを確認してください。");
+  }
+
+  if (!key) {
+    throw new Error("公開用APIキーを入力してください。");
+  }
+
+  return {
+    url: `https://${projectRef}.supabase.co`,
+    key
+  };
+}
+ async function testConnection() {
+  const status = document.getElementById("connection_status");
+  status.textContent = "接続確認中…";
+
+  try {
+    const { url, key } = getServerConfig();
+
+    const response = await fetch(
+      `${url}/rest/v1/posts?select=id&limit=1`,
+      {
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`接続失敗（HTTP ${response.status}）`);
+    }
+
+    status.textContent = "接続成功！";
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
 /* =====================
    端末指紋（device_id）
 ===================== */
@@ -71,7 +119,17 @@ async function hashPassword(password) {
 /* =====================
    ユーザー登録
 ===================== */
-async function registerUser() {
+async function registerUser() {let config;
+
+  try {
+    config = getServerConfig();
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+
+  const { url, key } = config;
+
   const name = document.getElementById("reg_name").value.trim();
   const password = document.getElementById("reg_password").value;
   const reg_status = document.getElementById("reg_status");
@@ -89,8 +147,8 @@ async function registerUser() {
     `${url}/rest/v1/users?name=eq.${encodedName}`,
     {
       headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${KEY}`
+        apikey: key,
+        Authorization: `Bearer ${key}`
       }
     }
   );
@@ -105,8 +163,8 @@ async function registerUser() {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      apikey: KEY,
-      Authorization: `Bearer ${KEY}`,
+      apikey: key,
+      Authorization: `Bearer ${key}`,
       Prefer: "return=representation"
     },
     body: JSON.stringify({
@@ -127,26 +185,22 @@ async function registerUser() {
   document.getElementById("reg_password").value = "";
 
   // 運営アカウントのウェルカム投稿
-  await fetch(`${url}/rest/v1/posts`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: KEY,
-      Authorization: `Bearer ${KEY}`
-    },
-    body: JSON.stringify({
-      message: `ようこそ、${name}さん！`,
-      user_id: "07003402-51ea-4a7c-8279-0ef4258250af"
-    })
-  });
-
-  loadPosts();
-}
+  
 
 /* =====================
    投稿処理
 ===================== */
-async function postMessage() {
+async function postMessage() {let config;
+
+  try {
+    config = getServerConfig();
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+
+  const { url, key } = config;
+
   const name = document.getElementById("name").value.trim();
   const password = document.getElementById("password").value;
   const message = document.getElementById("message").value;
@@ -164,8 +218,8 @@ async function postMessage() {
     `${url}/rest/v1/users?name=eq.${encodedName}&password=eq.${hashedPassword}`,
     {
       headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${KEY}`
+        apikey: key,
+        Authorization: `Bearer ${key}`
       }
     }
   );
@@ -186,8 +240,8 @@ const banRes = await fetch(
   `${url}/rest/v1/banned_devices?device_id=eq.${deviceId}`,
   {
     headers: {
-      apikey: KEY,
-      Authorization: `Bearer ${KEY}`
+      apikey: key,
+      Authorization: `Bearer ${key}`
     }
   }
 );
@@ -201,8 +255,8 @@ if (banned.length > 0) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      apikey: KEY,
-      Authorization: `Bearer ${KEY}`,
+      apikey: key,
+      Authorization: `Bearer ${key}`,
       Prefer: "return=representation"
     },
     body: JSON.stringify({
@@ -225,7 +279,17 @@ if (banned.length > 0) {
 /* =====================
    投稿一覧取得
 ===================== */
-async function loadPosts() {
+async function loadPosts() {let config;
+
+  try {
+    config = getServerConfig();
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+
+  const { url, key } = config;
+
   /* =====================
      投稿取得
   ===================== */
@@ -233,8 +297,8 @@ async function loadPosts() {
     `${url}/rest/v1/posts?select=id,message,created_at,user_id,device_id&order=created_at.desc`,
     {
       headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${KEY}`
+        apikey: key,
+        Authorization: `Bearer ${key}`
       }
     }
   );
@@ -253,8 +317,8 @@ async function loadPosts() {
     `${url}/rest/v1/users?select=id,name,role,is_banned,device_id`,
     {
       headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${KEY}`
+        apikey: key,
+        Authorization: `Bearer ${key}`
       }
     }
   );
@@ -273,8 +337,8 @@ async function loadPosts() {
     `${url}/rest/v1/banned_devices?select=device_id`,
     {
       headers: {
-        apikey: KEY,
-        Authorization: `Bearer ${KEY}`
+        apikey: key,
+        Authorization: `Bearer ${key}`
       }
     }
   );
